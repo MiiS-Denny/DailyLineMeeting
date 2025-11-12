@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import os
 import io
 import hashlib
@@ -151,6 +150,20 @@ def build_word(template_bytes: bytes, attendees, meta):
     return out
 
 # ========================
+#  狀態同步小工具（關鍵修正）
+# ========================
+def set_checked_for(emp_ids, value: bool):
+    """同時更新邏輯集合與每一顆 checkbox 的 widget 狀態"""
+    if value:
+        for eid in emp_ids:
+            st.session_state.checked.add(eid)
+            st.session_state[f"chk_{eid}"] = True
+    else:
+        for eid in emp_ids:
+            st.session_state.checked.discard(eid)
+            st.session_state[f"chk_{eid}"] = False
+
+# ========================
 #  設定
 # ========================
 st.set_page_config(page_title="生產線出席勾選（雲端版）", layout="wide")
@@ -203,13 +216,13 @@ with st.expander("① 宣達資訊（必填）", expanded=True):
 spokesman_id = SPOKESMAN_TO_ID.get(spokesman)
 if spokesman_id in st.session_state.checked:
     st.session_state.checked.discard(spokesman_id)
+st.session_state[f"chk_{spokesman_id}"] = False  # UI 也鎖成未勾選
 
-# --- 範本（改為固定路徑） ---
+# --- 範本（固定路徑） ---
 with st.expander("② 範本路徑（預設即可）", expanded=True):
     cpath1, cpath2 = st.columns([3, 1])
     tpath = cpath1.text_input("範本檔路徑（.docx）", value=TEMPLATE_PATH)
     cpath2.button("重新整理", help="若你剛上傳/更新範本檔到專案，按一下重新整理頁面", on_click=lambda: st.rerun())
-    # 存回變數（允許你改路徑）
     TEMPLATE_PATH = tpath
 
     if not os.path.exists(TEMPLATE_PATH):
@@ -224,8 +237,9 @@ with st.expander("③ 勾選出席人員", expanded=True):
     show_b = ctop2.toggle("只看本籍 (B)", value=False)
     show_f = ctop3.toggle("只看外籍 (F)", value=False)
     num_cols = ctop4.slider("每列欄數", min_value=2, max_value=8, value=6, help="調大可讓更多人一頁顯示")
-    precheck_all = ctop5.checkbox("將目前可見 → 全部勾選", value=False)
+    precheck_btn = ctop5.button("將目前可見 → 全部勾選（一次性）")
 
+    # 篩選可視清單
     filtered = []
     for emp_id, name in ALL_PERSONNEL:
         if query and (query not in emp_id and query not in name):
@@ -236,24 +250,32 @@ with st.expander("③ 勾選出席人員", expanded=True):
             continue
         filtered.append((emp_id, name))
 
+    # 三顆批次按鈕（同步 UI + 狀態，並 rerun）
     b1, b2, b3 = st.columns(3)
     if b1.button("目前可見 → 全部勾選"):
-        for emp_id, _ in filtered:
-            if emp_id != spokesman_id:
-                st.session_state.checked.add(emp_id)
-    if b2.button("目前可見 → 全部清除"):
-        for emp_id, _ in filtered:
-            st.session_state.checked.discard(emp_id)
-    if b3.button("全部清除（含不可見）"):
-        st.session_state.checked.clear()
+        ids = [eid for eid, _ in filtered if eid != spokesman_id]
+        set_checked_for(ids, True)
+        st.rerun()
 
-    if precheck_all:
-        for emp_id, _ in filtered:
-            if emp_id != spokesman_id:
-                st.session_state.checked.add(emp_id)
+    if b2.button("目前可見 → 全部清除"):
+        ids = [eid for eid, _ in filtered]
+        set_checked_for(ids, False)
+        st.rerun()
+
+    if b3.button("全部清除（含不可見）"):
+        ids = [eid for eid, _ in ALL_PERSONNEL]
+        set_checked_for(ids, False)
+        st.rerun()
+
+    # 一次性「全部勾選」按鈕（取代會黏住的 checkbox 寫法）
+    if precheck_btn:
+        ids = [eid for eid, _ in filtered if eid != spokesman_id]
+        set_checked_for(ids, True)
+        st.rerun()
 
     st.caption(f"提示：宣達人「{spokesman}」已自動排除，無法選為出席人員。")
 
+    # 畫 checkbox（以 session_state 為唯一真相）
     rows = (len(filtered) + num_cols - 1) // num_cols
     idx = 0
     for _ in range(rows):
@@ -263,12 +285,20 @@ with st.expander("③ 勾選出席人員", expanded=True):
                 break
             emp_id, name = filtered[idx]
             label = f"{emp_id}  {name}"
+            key = f"chk_{emp_id}"
+
+            # 初始化該 key（第一次渲染）
+            if key not in st.session_state:
+                st.session_state[key] = (emp_id in st.session_state.checked)
+
             if emp_id == spokesman_id:
-                col.checkbox(label + "（宣達人，自動排除）", value=False, disabled=True, key=f"chk_{emp_id}")
+                # 宣達人固定不可勾選
+                st.session_state[key] = False
+                col.checkbox(label + "（宣達人，自動排除）", value=False, disabled=True, key=key)
                 st.session_state.checked.discard(emp_id)
             else:
-                checked = emp_id in st.session_state.checked
-                if col.checkbox(label, value=checked, key=f"chk_{emp_id}"):
+                new_val = col.checkbox(label, key=key)
+                if new_val:
                     st.session_state.checked.add(emp_id)
                 else:
                     st.session_state.checked.discard(emp_id)
@@ -284,39 +314,38 @@ gen_btn = cR.button("④ 產生出席記錄", use_container_width=True)
 if gen_btn:
     if not os.path.exists(TEMPLATE_PATH):
         st.error("請先確認範本路徑正確，檔案存在。")
-    else:
-        if not date_str.strip():
-            st.error("請輸入日期（YYYY/MM/DD）")
-            st.stop()
-        if "~" not in time_str:
-            st.error("時間格式請用區間，例如：08:00 ~ 08:15")
-            st.stop()
+        st.stop()
+    if not date_str.strip():
+        st.error("請輸入日期（YYYY/MM/DD）")
+        st.stop()
+    if "~" not in time_str:
+        st.error("時間格式請用區間，例如：08:00 ~ 08:15")
+        st.stop()
 
-        selected = [(emp_id, name) for emp_id, name in ALL_PERSONNEL if emp_id in st.session_state.checked]
-        if not selected:
-            st.error("請至少勾選一位人員")
-            st.stop()
+    selected = [(emp_id, name) for emp_id, name in ALL_PERSONNEL if emp_id in st.session_state.checked]
+    if not selected:
+        st.error("請至少勾選一位人員")
+        st.stop()
 
-        meta = {
-            "location": location.strip(),
-            "date": date_str.strip(),
-            "time": time_str.strip(),
-            "spokesman": spokesman.strip(),
-        }
+    meta = {
+        "location": location.strip(),
+        "date": date_str.strip(),
+        "time": time_str.strip(),
+        "spokesman": spokesman.strip(),
+    }
 
-        try:
-            with open(TEMPLATE_PATH, "rb") as f:
-                tmpl_bytes = f.read()
-            out_io = build_word(tmpl_bytes, selected, meta)
-            ts = datetime.now().strftime("%Y%m%d-%H%M")
-            out_name = f"生產線每日宣達事項_出席記錄_{ts}.docx"
-            st.success("已產生完成！")
-            st.download_button(
-                "下載 Word 檔",
-                data=out_io.getvalue(),
-                file_name=out_name,
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            )
-        except Exception as e:
-            st.exception(e)
-
+    try:
+        with open(TEMPLATE_PATH, "rb") as f:
+            tmpl_bytes = f.read()
+        out_io = build_word(tmpl_bytes, selected, meta)
+        ts = datetime.now().strftime("%Y%m%d-%H%M")
+        out_name = f"生產線每日宣達事項_出席記錄_{ts}.docx"
+        st.success("已產生完成！")
+        st.download_button(
+            "下載 Word 檔",
+            data=out_io.getvalue(),
+            file_name=out_name,
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+    except Exception as e:
+        st.exception(e)
