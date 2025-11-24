@@ -39,7 +39,7 @@ USERS = {
     "May":     {"name": "May",     "salt": "oKNt3n4onv", "pw_hash": "a3d5445507e88eceb576da31f5750fa0fd826bd354396ce2414a6f54e7648898"},
     "Ping":    {"name": "Ping",    "salt": "KXCbcUEJaf", "pw_hash": "1165ba04fa78320f59a286ade424fbfdfd47975269bbbba70697a3e2f685488a"},
     "Denny":   {"name": "Denny",   "salt": "81glcT1w6J", "pw_hash": "5e0333bd0d02df45dd9d5ae7deac35f8033c9db0defd6cd4551f2397b082b98f"},
-    "Barry": {"name": "Barry",    "salt": "pT8ynhA2Qf", "pw_hash": "3d56fca5f375c659879a289ae5df2596f3f148141c98c8b712ce2aa17ffbd635"},
+    "Barry": {"name": "Barry",    "salt": "pT8ynhA2Qf", "pw_hash": "3a7bf36549829eb94f0d36db7e54ca17dd9b561963709a49bfd9e8ab0c610deb"},
 }
 
 def check_login(username: str, password: str) -> bool:
@@ -359,5 +359,6 @@ if gen_btn:
         )
     except Exception as e:
         st.exception(e)
+
 
 
