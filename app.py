@@ -34,11 +34,12 @@ PEPPER = get_pepper()
 USERS = {
     "Charles": {"name": "Charles", "salt": "HxEFDUaRey", "pw_hash": "d1b6611d51176cb4d445fc8d98debcf7d09afba09c84681ec4e0b8560438a9d4"},
     "Hsiang":  {"name": "Hsiang",  "salt": "oNeiHDVCSY", "pw_hash": "a70d3210d4960b5d3a502a58d14d37c6a5eb66c036c5301b94259fa3bd6ad8ba"},
-    "Sandy":   {"name": "Sandy",   "salt": "s1pXUeWFmY", "pw_hash": "36aff05ac4953b773dee06df6dbc2850f3b54c0748f10d36ab4b7e9cb73062e2"},
+   # "Sandy":   {"name": "Sandy",   "salt": "s1pXUeWFmY", "pw_hash": "36aff05ac4953b773dee06df6dbc2850f3b54c0748f10d36ab4b7e9cb73062e2"},
     "Min":     {"name": "Min",     "salt": "5OaOjhx3Ty", "pw_hash": "2b8997a0ff9e3d99d37fdd0de9b27b9c2a959ed18f8b68a5e774bb3d44999583"},
     "May":     {"name": "May",     "salt": "oKNt3n4onv", "pw_hash": "a3d5445507e88eceb576da31f5750fa0fd826bd354396ce2414a6f54e7648898"},
     "Ping":    {"name": "Ping",    "salt": "KXCbcUEJaf", "pw_hash": "1165ba04fa78320f59a286ade424fbfdfd47975269bbbba70697a3e2f685488a"},
     "Denny":   {"name": "Denny",   "salt": "81glcT1w6J", "pw_hash": "5e0333bd0d02df45dd9d5ae7deac35f8033c9db0defd6cd4551f2397b082b98f"},
+    "Barry": {"name": "Barry",    "salt": "gjL83qZmA1", "pw_hash": "fa523329529c4d35e2597b0e1b021c609fe0488aad5d9771babba446c6ec0ffd"},
 }
 
 def check_login(username: str, password: str) -> bool:
@@ -349,3 +350,4 @@ if gen_btn:
         )
     except Exception as e:
         st.exception(e)
+
